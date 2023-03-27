@@ -1,9 +1,10 @@
 import spacy
+from collections import defaultdict
 
-spacy2bert = {
+spacy2bert = { 
         "ORG": "ORGANIZATION",
         "PERSON": "PERSON",
-        "GPE": "LOCATION",
+        "GPE": "LOCATION", 
         "LOC": "LOCATION",
         "DATE": "DATE"
         }
@@ -22,29 +23,45 @@ bert2spacy = {
 def get_entities(sentence, entities_of_interest):
     return [(e.text, spacy2bert[e.label_]) for e in sentence.ents if e.label_ in spacy2bert]
 
+
 def extract_relations(doc, spanbert, entities_of_interest=None, conf=0.7):
     num_sentences = len([s for s in doc.sents])
-    print("Total # sentences = {}".format(num_sentences))
+    print("\tExtracted {} sentences. Processing each sentence one by one to check for presence of right pair of named "
+          "entity types; if so, will run the second pipeline ...".format(num_sentences))
     res = defaultdict(int)
+    count = 1
+    annot_count  = 0
     for sentence in doc.sents:
-        print("\tprocessing sentence: {}".format(sentence))
+        if count%5 == 0:
+            print(f"\tProcessed {count} / {num_sentences} sentences")
+        count += 1
         entity_pairs = create_entity_pairs(sentence, entities_of_interest)
+        if len(entity_pairs) == 0:
+            continue
         examples = []
         for ep in entity_pairs:
             examples.append({"tokens": ep[0], "subj": ep[1], "obj": ep[2]})
             examples.append({"tokens": ep[0], "subj": ep[2], "obj": ep[1]})
 
         preds = spanbert.predict(examples)
+
+        for ex, pred in list(zip(examples, preds)):
+            relation = pred[0]
+            if relation == 'no_relation':
+                continue
+            else:
+                annot_count += 1
+                break
         for ex, pred in list(zip(examples, preds)):
             relation = pred[0]
             if relation == 'no_relation':
                 continue
             print("\n\t\t=== Extracted Relation ===")
-            print("\t\tTokens: {}".format(ex['tokens']))
+            print("\t\tSentence: {}".format(sentence))
             subj = ex["subj"][0]
             obj = ex["obj"][0]
             confidence = pred[1]
-            print("\t\tRelation: {} (Confidence: {:.3f})\nSubject: {}\tObject: {}".format(relation, confidence, subj, obj))
+            print("\t\tSubject: {}\tObject: {}".format(subj, obj))
             if confidence > conf:
                 if res[(subj, relation, obj)] < confidence:
                     res[(subj, relation, obj)] = confidence
@@ -54,26 +71,30 @@ def extract_relations(doc, spanbert, entities_of_interest=None, conf=0.7):
             else:
                 print("\t\tConfidence is lower than threshold confidence. Ignoring this.")
             print("\t\t==========")
+    print(f"\tExtracted annotations for  {annot_count}  out of total  {num_sentences}  sentences")
+
     return res
+
 
 def create_entity_pairs(sents_doc, entities_of_interest, window_size=40):
     '''
     Input: a spaCy Sentence object and a list of entities of interest
     Output: list of extracted entity pairs: (text, entity1, entity2)
     '''
-    entities_of_interest = {bert2spacy[b] for b in entities_of_interest}
+    if entities_of_interest is not None:
+        entities_of_interest = {bert2spacy[b] for b in entities_of_interest}
     ents = sents_doc.ents # get entities for given sentence
 
     length_doc = len(sents_doc)
     entity_pairs = []
     for i in range(len(ents)):
         e1 = ents[i]
-        if e1.label_ not in entities_of_interest:
+        if entities_of_interest is not None and e1.label_ not in entities_of_interest:
             continue
 
         for j in range(1, len(ents) - i):
             e2 = ents[i + j]
-            if e2.label_ not in entities_of_interest:
+            if entities_of_interest is not None and e2.label_ not in entities_of_interest:
                 continue
             if e1.text.lower() == e2.text.lower(): # make sure e1 != e2
                 continue
@@ -118,3 +139,4 @@ def create_entity_pairs(sents_doc, entities_of_interest, window_size=40):
                     assert x[e2.start-gap] == e2.text, "{}, {}".format(e2_info, x)
                 entity_pairs.append((x, e1_info, e2_info))
     return entity_pairs
+

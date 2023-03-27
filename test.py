@@ -1,15 +1,29 @@
 import requests
 from bs4 import BeautifulSoup
-
+import re
+import urllib
 # Make a GET request to the webpage
-url = "https://en.wikipedia.org/wiki/Beautiful_Soup_(HTML_parser)"
-response = requests.get(url)
+url = "https://en.wikipedia.org/wiki/Mark_Zuckerberg"
+page = urllib.request.urlopen(url, timeout=10).read().decode('utf-8')
+soup = BeautifulSoup(page, 'html.parser')
 
-# Use Beautiful Soup to parse the HTML content of the webpage
-soup = BeautifulSoup(response.content, "html.parser")
+# [s.extract() for s in soup(['style', 'script', '[document]', 'head', 'title'])]
+txt = soup.getText()
+# # Removing redundant newlines and some whitespace characters
+txt = re.sub(u'\xa0', ' ', txt)
 
-# Extract the plain text from the webpage, excluding whitespace
-text = soup.get_text(separator='', strip=True)
+txt = re.sub('\t+', ' ', txt)
 
+txt = re.sub('\n+', ' ', txt)
+
+txt = re.sub(' +', ' ', txt)
+
+txt = txt.replace('\u200b', '')
+
+
+# the resulting plain text is longer than 10,000 characters, truncate the text to its first 10,000 characters
+if len(txt) > 10000:
+    print(f'\tTrimming webpage content from {len(txt)} to 10000 characters')
+    txt = txt[:10000]
 # Print the plain text
-print(text)
+print(txt)
