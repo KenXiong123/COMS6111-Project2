@@ -119,6 +119,10 @@ class ISE:
     def extract_relations_spbt(self, text, entities_of_interest, target_relation):
         nlp = spacy.load("en_core_web_lg")
         doc = nlp(text)
+        print("------------")
+        for ent in doc.ents:
+            print(ent.text, ent.label_)
+        print("------------")
         spanbert = SpanBERT("./pretrained_spanbert")
         relations = extract_relations(doc, spanbert, entities_of_interest, self.THRESHOLD, target_relation)
         return relations
