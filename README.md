@@ -100,9 +100,18 @@ The `extract_relations` function takes a Spacy document and an optional list of 
 
 The `extract_relations_gpt` function is similar to `extract_relations`, but it uses OpenAI's GPT-3 to generate the relation extraction prompt and obtain the relation extraction output. It also converts SpanBERT's entity labels to Spacy's entity labels before processing the document.
 
-## Description of how to carried out Step 3
+## Description of how to carry out Step 3
 
-
+Step 3 is carried out in the `iterative_set_expansion` function in the `ise.py` file. 
+To process each URL that hasn't been processed before, 
+the plain text (10,000 characters) from each webpage is extracted using Beautiful Soup.
+Then, use `spaCy` to split the text into sentences and extract named entities. 
+If using `SpanBERT`, predict relations based on the specified input parameter and extract tuples with a confidence level of at least t. 
+If using `GPT-3`, extract all tuples with a confidence level of 1.0 since extraction confidence values are not provided by the API. 
+Add the identified tuples to set X until X has at least k tuples. 
+If there aren't k tuples in X at the end of each iteration, the iteration continues and the query will be expanded using qualified tuples. 
+The new query will be used for google search to retrieve more webpages.
+If there aren't any qualified tuples to expand the query, the iteration stops and all relations in X will be outputted.
 
 ## Google Custom Search Engine JSON API Key and Engine ID
 
