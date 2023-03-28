@@ -9,12 +9,14 @@ import spacy
 from spanbert import SpanBERT
 from new_help_functions import get_entities, create_entity_pairs, extract_relations
 
+
 class ISE:
     def __init__(self):
-        self.relation_map = {1: ("Schools_Attended", ["PERSON"], ["ORGANIZATION"]),
-                             2: ("Work_For", ["PERSON"], ["ORGANIZATION"]),
-                             3: ("Live_In", ["PERSON"], ["LOCATION", "CITY", "STATE_OR_PROVINCE", "COUNTRY"]),
-                             4: ("Top_Member_Employees", ["ORGANIZATION"], ["PERSON"])}
+        self.relation_map = {1: ("Schools_Attended", "per:schools_attended", ["PERSON"], ["ORGANIZATION"]),
+                             2: ("Work_For", "per:employee_of", ["PERSON"], ["ORGANIZATION"]),
+                             3: ("Live_In", "per:cities_of_residence", ["PERSON"],
+                                 ["LOCATION", "CITY", "STATE_OR_PROVINCE", "COUNTRY"]),
+                             4: ("Top_Member_Employees", "org:top_members/employees", ["ORGANIZATION"], ["PERSON"])}
 
         self.queries = set()
 
@@ -89,8 +91,6 @@ class ISE:
         print("# of Tuples \t= " + str(self.k))
         print("Loading necessary libraries; This should take a minute or so...")
 
-
-
     def extract_plain_text(self, url):
         """
           Extract plain text from a web page pointed by url
@@ -116,11 +116,11 @@ class ISE:
             txt = txt[:10000]
         return txt
 
-    def extract_relations_spbt(self, text, entities_of_interest):
+    def extract_relations_spbt(self, text, entities_of_interest, target_relation):
         nlp = spacy.load("en_core_web_lg")
         doc = nlp(text)
         spanbert = SpanBERT("./pretrained_spanbert")
-        relations = extract_relations(doc, spanbert, entities_of_interest, self.THRESHOLD)
+        relations = extract_relations(doc, spanbert, entities_of_interest, self.THRESHOLD, target_relation)
         return relations
 
     def add_tups_to_set(self, relations):
@@ -137,9 +137,26 @@ class ISE:
         return count
 
     def spbt(self):
-        iteration_count = 0
+        iteration_count = 1
         seen_URLs = set()
         while len(self.X) < self.k:
+            if len(self.X) != 0:
+                selected_tup = None
+                max_confidence = -float('inf')
+                for tup, confidence in self.X.items():
+                    if (tup[0] + " " + tup[2]) not in self.QUERY:
+                        if "-spanbert" == self.METHOD:
+                            if confidence > max_confidence:
+                                max_confidence = confidence
+                                selected_tup = tup
+                        else:
+                            selected_tup = tup
+                            break
+                if selected_tup is not None:
+                    self.QUERY = self.QUERY + ' ' + selected_tup[0] + ' ' + selected_tup[2]
+                    print("query", self.QUERY)
+                else:
+                    break
             print(f'=========== Iteration: {iteration_count} - Query: {self.QUERY} ===========')
             results = self.google_search()
             result_count = 1
@@ -155,12 +172,20 @@ class ISE:
                 print(f'\tWebpage length (num characters): {len(text)}')
                 print("\tAnnotating the webpage using spacy...")
                 target_relation = self.relation_map[self.RELATION]
-                entities_of_interest = target_relation[1] + target_relation[2]
-                relations = self.extract_relations_spbt(text, entities_of_interest)
+                entities_of_interest = target_relation[2] + target_relation[3]
+                relations = self.extract_relations_spbt(text, entities_of_interest, self.relation_map[self.RELATION][1])
                 c = self.add_tups_to_set(relations)
                 print(f"\tRelations extracted from this website: {c} (Overall: {len(relations)})")
                 result_count += 1
             iteration_count += 1
+        self.summary(iteration_count-1)
+
+    def summary(self, iteration_count):
+        print(f'================== ALL RELATIONS for {self.relation_map[self.RELATION][1]} ( {len(self.X)} ) =================')
+        sorted_X = dict(sorted(self.X.items(), key=lambda x: x[1], reverse=True))
+        for tup in sorted_X:
+            print(f'Confidence: {self.X[tup]} 		| Subject: {tup[0]} 		| Object: {tup[2]}')
+        print(f'Total # of iterations = {iteration_count}')
 
     def make(self):
         self.read_params()
