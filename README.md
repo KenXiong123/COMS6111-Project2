@@ -24,9 +24,19 @@ Ken Xiong(**kx2175**)
    $ sudo apt-get install tar xz-utils
    $ tar xzvf proj2.tar.gz
    $ cd proj2
+   $ sudo apt update
    $ sudo apt-get install python3-pip
-   $ 
-   $ pip install -r requirements.txt
+   $ pip3 install beautifulsoup4
+   $ pip3 install -U pip setuptools wheel
+   $ pip3 install -U spacy
+   $ python3 -m spacy download en_core_web_lg
+   $ git clone https://github.com/zackhuiiiii/SpanBERT
+   $ mv ise.py SpanBERT/
+   $ mv new_help_functions.py SpanBERT/
+   $ cd SpanBERT
+   $ pip3 install -r requirements.txt
+   $ bash download_finetuned.sh
+   $ pip3 install openai
    $ python3 project2.py [-spanbert|-gpt3] <google api key> <google engine id> <openai secret key> <r> <t> <q> <k>
    ```
 
@@ -40,6 +50,8 @@ Ken Xiong(**kx2175**)
    - **<t>** is a real number between 0 and 1, indicating the "extraction confidence threshold," which is the minimum extraction confidence that we request for the tuples in the output; **t** is ignored if we are specifying **-gpt3**
    - **<q>** is a "seed query," which is a list of words in double quotes corresponding to a plausible tuple for the relation to extract (e.g., "bill gates microsoft" for relation Work_For)
    - **<k>** is an integer greater than 0, indicating the number of tuples that we request in the output
+
+**Important Note:** move all py files into the SpanBERT folder before running the last command.
 
 ## Internal design of the project
 
